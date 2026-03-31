@@ -8,6 +8,10 @@
 //Status do jogo
 #define WIN 1
 #define IN_GAME 0
+
+
+// Defines para os returns das funcoes
+#define OK 0
 #define ERROR -1
 
 typedef enum {
