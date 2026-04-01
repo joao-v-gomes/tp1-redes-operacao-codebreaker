@@ -16,6 +16,7 @@ int client_socket = 0;
 int code;
 
 HackerMessage msg_received;
+HackerMessage msg_to_send;
 
 int setUpServer(char *ip, int port) {
 
@@ -29,6 +30,9 @@ int setUpServer(char *ip, int port) {
     server_address.sin_family = AF_INET;
     server_address.sin_port = htons(port);
     inet_pton(AF_INET, ip, &server_address.sin_addr);
+
+    int opt = 1;
+    setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
     if (bind(server_socket, (struct sockaddr *)&server_address, sizeof(server_address)) < 0) {
         perror("Error binding server socket");
@@ -69,6 +73,25 @@ int waitForClientConnection(int server_socket) {
     }
     return client_socket;
 }
+
+int readMessageFromClient(int client_socket, HackerMessage *msg) {
+    int total = 0;
+    while (total < sizeof(HackerMessage)) {
+        int n = read(client_socket, ((char*)msg) + total, sizeof(HackerMessage) - total);
+
+        printf("Read %d bytes from client socket\n", n);
+
+        if (n <= 0){
+            return ERROR;
+        }
+        total += n;
+    }
+    return OK;
+}
+
+int checkGuess(char *guess, int code, int *feedback) {
+    return OK;
+};
 
 int main(int argc, char **argv) {
 
@@ -120,29 +143,95 @@ int main(int argc, char **argv) {
                 }
                 else{
                     printf("Client connected successfully \n");
-                    state = WAIT_FOR_MESSAGE_STATE;
-                    printf("Waiting for message from client...\n");
+                    state = WAIT_FOR_START_MESSAGE_STATE;
+                    printf("Waiting for start message from client...\n");
                 }
 
                 break;
 
-            case WAIT_FOR_MESSAGE_STATE:
-                // printf("Waiting for message from client...\n");
-                // state = RECEIVED_MESSAGE_STATE;
-                break;
-            
-            case RECEIVED_MESSAGE_STATE:
-                printf("Message received from client...\n");
-                // state = SEND_FEEDBACK_STATE;
+            case WAIT_FOR_START_MESSAGE_STATE:
+                // printf("Waiting for start message from client...\n");
+                // state = RECEIVED_START_MESSAGE_STATE;
+
+                readMessageFromClient(client_socket, &msg_received);
+
+                if(msg_received.type == MSG_START) {
+                    printf("Start message received from client...\n");
+                    state = RECEIVED_START_MESSAGE_STATE;
+                }
+                else{
+                    printf("Invalid message type received from client. Expected MSG_START.\n");
+                    return ERROR;
+                }
+
                 break;
 
-            case SEND_FEEDBACK_STATE:
+            case RECEIVED_START_MESSAGE_STATE:
+                // printf("Start message received from client...\n");
+                state = WAIT_FOR_GUESS_MESSAGE_STATE;
+                printf("Waiting for guess message from client...\n");
+
+                break;    
+
+            case WAIT_FOR_GUESS_MESSAGE_STATE:
+                // printf("Waiting for guess message from client...\n");
+
+                if (readMessageFromClient(client_socket, &msg_received) == ERROR) {
+                    printf("Error reading message from client");
+                    return ERROR;
+                }
+                else if (msg_received.type == MSG_GUESS) {
+                    state = RECEIVED_GUESS_MESSAGE_STATE;
+                    printf("Guess message received from client...\n");
+                }
+                else{
+                    printf("Invalid message type received from client. Expected MSG_GUESS.\n");
+                    return ERROR;
+                }
+
+                break;
+            
+            case RECEIVED_GUESS_MESSAGE_STATE: {
+                // printf("Guess message received from client...\n");
+
+                char guess_received[6];
+
+                for(int i = 0; i < 5; i++) {
+                    guess_received[i] = msg_received.guess[i] + '0';
+                }
+                guess_received[5] = '\0';
+
+                printf("Guess received from client: %s \n", guess_received);
+
+                checkGuess(guess_received, code, msg_to_send.feedback);
+
+                state = SEND_FEEDBACK_STATE;
                 printf("Sending feedback to client...\n");
-                // state = CHECK_WIN_STATUS_STATE;
+
+                break;
+            }
+
+            case SEND_FEEDBACK_STATE:
+                // printf("Sending feedback to client...\n");
+
+                printf("Calculating feedback for guess...\n");
+                printf("This was the guess received: %d %d %d %d %d \n", msg_received.guess[0], msg_received.guess[1], msg_received.guess[2], msg_received.guess[3], msg_received.guess[4]);
+
+                msg_to_send.type = MSG_FEEDBACK;
+
+                msg_to_send.feedback[0] = msg_received.guess[0];
+                msg_to_send.feedback[1] = msg_received.guess[1];
+                msg_to_send.feedback[2] = msg_received.guess[2];
+                msg_to_send.feedback[3] = msg_received.guess[3];
+                msg_to_send.feedback[4] = msg_received.guess[4];
+
+                write(client_socket, &msg_to_send, sizeof(msg_to_send));
+                state = CHECK_WIN_STATUS_STATE;
+                printf("Checking win status...\n");
                 break;
 
             case CHECK_WIN_STATUS_STATE:
-                printf("Checking win status...\n");
+                // printf("Checking win status...\n");
                 // state = EXIT_STATE;
                 break;
 
