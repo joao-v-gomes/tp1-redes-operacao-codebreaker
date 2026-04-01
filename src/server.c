@@ -73,6 +73,8 @@ int waitForClientConnection(int server_socket) {
 int main(int argc, char **argv) {
 
     state = START_SERVER_STATE;
+    printf("Starting server...\n");
+
     argc_counter = argc;
     code = atoi(argv[3]);
     while (1)
@@ -80,12 +82,14 @@ int main(int argc, char **argv) {
         switch (state)
         {
             case START_SERVER_STATE:
-                printf("Starting server...\n");
+                // printf("Starting server...\n");
                 state = SETTING_UP_SERVER_STATE;
+                printf("Setting up server...\n");
                 break;
             
-            case SETTING_UP_SERVER_STATE:
-                printf("Setting up server...\n");
+            //Precisei colocar o case dentro de chaves para declarar variáveis locais
+            case SETTING_UP_SERVER_STATE: {
+                // printf("Setting up server...\n");
 
                 char *ip = argv[1];
                 int port = atoi(argv[2]);
@@ -99,12 +103,14 @@ int main(int argc, char **argv) {
                 else{
                     printf("Server set up successfully on %s:%d \n", ip, port);
                     state = WAIT_FOR_CONNECTION_STATE;
+                    printf("Waiting for client connection...\n");
                 }
-                
+
                 break;
+            }
 
             case WAIT_FOR_CONNECTION_STATE:
-                printf("Waiting for client connection...\n");
+                // printf("Waiting for client connection...\n");
 
                 client_socket = waitForClientConnection(server_socket);
                 
@@ -115,12 +121,13 @@ int main(int argc, char **argv) {
                 else{
                     printf("Client connected successfully \n");
                     state = WAIT_FOR_MESSAGE_STATE;
+                    printf("Waiting for message from client...\n");
                 }
 
                 break;
 
             case WAIT_FOR_MESSAGE_STATE:
-                printf("Waiting for message from client...\n");
+                // printf("Waiting for message from client...\n");
                 // state = RECEIVED_MESSAGE_STATE;
                 break;
             

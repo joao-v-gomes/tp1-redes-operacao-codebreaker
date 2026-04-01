@@ -68,19 +68,22 @@ int validateInfoToConnectToServer(char *server_ip, int server_port) {
 int main(int argc, char **argv) {
 
     argc_counter = argc;
+
     state = START_CLIENT_STATE;
+    printf("Starting client...\n");
 
     while(1)
     {
         switch (state)
         {
             case START_CLIENT_STATE:
-                printf("Starting client...\n");
+                // printf("Starting client...\n");
                 state = CONNECT_TO_SERVER_STATE;
+                printf("Connecting to server...\n");
                 break;
             
-            case CONNECT_TO_SERVER_STATE:
-                printf("Connecting to server...\n");
+            case CONNECT_TO_SERVER_STATE: {
+                // printf("Connecting to server...\n");
 
                 char *server_ip = argv[1];
                 int server_port = atoi(argv[2]);
@@ -96,11 +99,13 @@ int main(int argc, char **argv) {
                 else{
                     printf("Connected to server at %s:%d \n", server_ip, server_port);
                     state = SEND_GUESS_STATE;
+                    printf("Sending guess to server...\n");
                 }        
                 break;
+            }
 
             case SEND_GUESS_STATE:
-                printf("Sending guess to server...\n");
+                // printf("Sending guess to server...\n");
                 // state = RECEIVE_FEEDBACK_STATE;
                 break;
 
