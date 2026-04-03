@@ -68,9 +68,10 @@ int validateInfoToConnectToServer(char *server_ip, int server_port) {
 int readMessageFromServer(int client_socket, HackerMessage *msg) {
     int total = 0;
     while (total < sizeof(HackerMessage)) {
-        int n = read(client_socket, ((char*)msg) + total, sizeof(HackerMessage) - total);
+        // int n = read(client_socket, ((char*)msg) + total, sizeof(HackerMessage) - total);
+        int n = recv(client_socket, ((char*)msg) + total, sizeof(HackerMessage) - total, 0);
 
-        printf("Read %d bytes from server socket\n", n);
+        // printf("Read %d bytes from server socket\n", n);
 
         if (n <= 0){
             return ERROR;
@@ -78,6 +79,28 @@ int readMessageFromServer(int client_socket, HackerMessage *msg) {
         total += n;
     }
     return OK;
+}
+
+void convertFeedback(HackerMessage *msg_received, char *feedback) {
+
+    // printf("Guess: %d %d %d %d %d \n", msg_received->guess[0], msg_received->guess[1], msg_received->guess[2], msg_received->guess[3], msg_received->guess[4]);
+    // printf("Feedback: %d %d %d %d %d \n", msg_received->feedback[0], msg_received->feedback[1], msg_received->feedback[2], msg_received->feedback[3], msg_received->feedback[4]);
+
+    for(int i = 0; i < 5; i++) {
+        if (msg_received->feedback[i] == RIGHT_POSITION) {
+            feedback[i] = msg_received->guess[i] + '0';
+        }
+        else if (msg_received->feedback[i] == WRONG_POSITION) {
+            feedback[i] = '*';
+        }
+        else if (msg_received->feedback[i] == NOT_IN_CODE) {
+            feedback[i] = '-';
+        }
+    }
+
+    feedback[5] = '\0';
+
+    printf("Feedback converted: %s \n", feedback);
 }
 
 int main(int argc, char **argv) {
@@ -126,7 +149,8 @@ int main(int argc, char **argv) {
 
                 msg_sent.type = MSG_START;
 
-                write(client_socket, &msg_sent, sizeof(msg_sent));
+                // write(client_socket, &msg_sent, sizeof(msg_sent));
+                send(client_socket, &msg_sent, sizeof(msg_sent), 0);
 
                 state = SEND_GUESS_STATE;
                 printf("Sending guess to server...\n");
@@ -150,7 +174,8 @@ int main(int argc, char **argv) {
                     msg_sent.guess[i] = guess_string[i] - '0';
                 }
 
-                write(client_socket, &msg_sent, sizeof(msg_sent));
+                // write(client_socket, &msg_sent, sizeof(msg_sent));
+                send(client_socket, &msg_sent, sizeof(msg_sent), 0);
 
                 state = WAIT_FOR_FEEDBACK_STATE;
                 printf("Waiting for feedback from server...\n");
@@ -165,39 +190,87 @@ int main(int argc, char **argv) {
                     printf("Error reading message from server");
                     return ERROR;
                 }
-                else if (msg_received.type == MSG_FEEDBACK) {
-                    state = RECEIVE_FEEDBACK_STATE;
-                    printf("Feedback received from server...\n");
+
+                if(msg_received.type == MSG_FEEDBACK){
+                    switch (msg_received.win_status)
+                    {
+                        case IN_GAME:
+                            state = RECEIVED_IN_GAME_FEEDBACK_STATE;
+                            printf("Feedback received from server. Game is still in progress...\n");
+                            break;
+                        
+                        case WIN:
+                            state = RECEIVED_WIN_FEEDBACK_STATE;
+                            printf("Feedback received from server. You win!\n");
+                            break;
+                        
+                        case ERROR:
+                            state = RECEIVED_ERROR_FEEDBACK_STATE;
+                            printf("Feedback received from server. An error occurred...\n");
+                            break;
+
+                        default:
+                            printf("Invalid win status received from server. Expected WIN, IN_GAME or ERROR.\n");
+                            return ERROR;
+                            break;
+                    }
                 }
                 else{
                     printf("Invalid message type received from server. Expected MSG_FEEDBACK.\n");
                     return ERROR;
                 }
-
+                // else if (msg_received.type == MSG_FEEDBACK) {
+                //     state = RECEIVE_FEEDBACK_STATE;
+                //     printf("Feedback received from server...\n");
+                // }
+                // else{
+                //     printf("Invalid message type received from server. Expected MSG_FEEDBACK.\n");
+                //     return ERROR;
+                // }
                 break;
 
-            case RECEIVE_FEEDBACK_STATE:
+            case RECEIVED_IN_GAME_FEEDBACK_STATE:
+                // printf("Feedback received from server. Game is still in progress...\n");
 
-                // printf("Feedback received from server...\n");
+                printf("Feedback received from server. Dicas: %d %d %d %d %d \n", msg_received.feedback[0], msg_received.feedback[1], msg_received.feedback[2], msg_received.feedback[3], msg_received.feedback[4]);
 
-                printf("Feedback received was: %d %d %d %d %d \n", msg_received.feedback[0], msg_received.feedback[1], msg_received.feedback[2], msg_received.feedback[3], msg_received.feedback[4]);
+                char *feedbackConverted = (char*) malloc(16 * sizeof(char));
 
-                state = CHECK_WIN_STATUS_STATE;
-                printf("Checking win status...\n");
+                convertFeedback(&msg_received, feedbackConverted);
+
+                printf("Feedback received from server. Dicas convertidas: %s \n", feedbackConverted);
+                printf("Tentativas: %d \n", msg_received.attempts);
+
+                state = SEND_GUESS_STATE;
+                printf("Sending guess to server...\n");
                 break;
 
-            case CHECK_WIN_STATUS_STATE:
-                // printf("Checking win status...\n");
-                // state = EXIT_STATE;
+            case RECEIVED_WIN_FEEDBACK_STATE:
+                // printf("Feedback received from server. You win!\n");
+                state = WIN_STATE;
+
+                memset(&msg_sent, 0, sizeof(msg_sent));
+                msg_sent.type = MSG_EXIT;
+                
+                send(client_socket, &msg_sent, sizeof(msg_sent), 0);
+                
                 break;
             
             case WIN_STATE:
                 printf("You win!\n");
+
+                close(client_socket);
                 // state = EXIT_STATE;
+
+                state = EXIT_STATE;
+                printf("Exiting client...\n");
+
                 break;
 
             case EXIT_STATE:
-                printf("Exiting client...\n");
+                printf("Exited client\n");
+
+                exit(0);
                 break;
 
             default:
@@ -205,34 +278,4 @@ int main(int argc, char **argv) {
                 break;
         }
     }
-
-
-    // HackerMessage msg;
-
-    // msg.type = MSG_START;
-    // msg.attempts = 0;
-    // msg.win_status = IN_GAME;
-
-    // char guess_string[16];
-
-
-    // while(1) {
-
-    //     memset(&guess_string, 0, sizeof(guess_string));
-
-    //     printf("Enter a message to send to the server: \n");
-    //     // scanf("%d%d%d%d%d", &msg.guess[0], &msg.guess[1], &msg.guess[2], &msg.guess[3], &msg.guess[4]);
-    //     fgets(guess_string, sizeof(guess_string), stdin);
-
-    //     for(int i = 0; i < 5; i++) {
-    //         msg.guess[i] = guess_string[i] - '0';
-    //     }
-
-    //     write(client_socket, &msg, sizeof(msg));
-
-    //     //limpar o buffer
-    //     memset(&msg, 0, sizeof(msg));
-    // }
-
-    // return 0;
 }

@@ -3,15 +3,15 @@
 #define WAIT_FOR_CONNECTION_STATE 2
 #define WAIT_FOR_START_MESSAGE_STATE 3
 #define RECEIVED_START_MESSAGE_STATE 4
-#define WAIT_FOR_GUESS_MESSAGE_STATE 5
+#define WAITING_FOR_MESSAGE_STATE 5
 #define RECEIVED_GUESS_MESSAGE_STATE 6
 // #define CHECK_GUESS_AND_PREPARE_FEEDBACK_STATE 7
 #define SEND_FEEDBACK_STATE 8
-#define CHECK_WIN_STATUS_STATE 9
+#define WAIT_FOR_EXIT_MESSAGE_STATE 9
 #define EXIT_STATE 10
 
 
 
-int setUpServer(char *ip, int port);
-int validateInfoToSetUpServer(char *ip, int port);
+int setUpServer(char *ip, int port, int code);
+int validateInfoToSetUpServer(char *ip, int port, int code);
 int waitForClientConnection(int server_socket);
