@@ -41,17 +41,47 @@ int connectToServer(char *server_ip, int server_port) {
         return ERROR;
     }
 
-    int client_socket = socket(AF_INET, SOCK_STREAM, 0);
-    struct sockaddr_in server_address;
-    server_address.sin_family = AF_INET;
-    server_address.sin_port = htons(server_port);
-    inet_pton(AF_INET, server_ip, &server_address.sin_addr);
+    int client_socket = ERROR;
 
-    if (connect(client_socket, (struct sockaddr *)&server_address, sizeof(server_address)) < 0) {
-        return ERROR;
+    struct sockaddr_in server_address_v4;
+    memset(&server_address_v4, 0, sizeof(server_address_v4));
+    server_address_v4.sin_family = AF_INET;
+    server_address_v4.sin_port = htons(server_port);
+
+    if (inet_pton(AF_INET, server_ip, &server_address_v4.sin_addr) == 1) {
+        client_socket = socket(AF_INET, SOCK_STREAM, 0);
+        if (client_socket < 0) {
+            return ERROR;
+        }
+
+        if (connect(client_socket, (struct sockaddr *)&server_address_v4, sizeof(server_address_v4)) < 0) {
+            close(client_socket);
+            return ERROR;
+        }
+
+        return client_socket;
     }
 
-    return client_socket;
+    struct sockaddr_in6 server_address_v6;
+    memset(&server_address_v6, 0, sizeof(server_address_v6));
+    server_address_v6.sin6_family = AF_INET6;
+    server_address_v6.sin6_port = htons(server_port);
+
+    if (inet_pton(AF_INET6, server_ip, &server_address_v6.sin6_addr) == 1) {
+        client_socket = socket(AF_INET6, SOCK_STREAM, 0);
+        if (client_socket < 0) {
+            return ERROR;
+        }
+
+        if (connect(client_socket, (struct sockaddr *)&server_address_v6, sizeof(server_address_v6)) < 0) {
+            close(client_socket);
+            return ERROR;
+        }
+
+        return client_socket;
+    }
+
+    return ERROR;
 }
 
 int validateInfoToConnectToServer(char *server_ip, int server_port) {
@@ -72,12 +102,11 @@ int validateInfoToConnectToServer(char *server_ip, int server_port) {
         return ERROR;
     }
 
-    // TODO: Verificar se e IPv4 ou IPv6
+    // Verificar se o IP do servidor é válido (IPv4 ou IPv6 literal)
+    struct in_addr sa_v4;
+    struct in6_addr sa_v6;
 
-    // Verificar se o IP do servidor é válido
-    struct sockaddr_in sa;
-    int result = inet_pton(AF_INET, server_ip, &(sa.sin_addr));
-    if (result <= 0) {
+    if (inet_pton(AF_INET, server_ip, &sa_v4) != 1 && inet_pton(AF_INET6, server_ip, &sa_v6) != 1) {
 #ifdef DEBUG
         printf("Endereço IP inválido.\n");
 #endif
