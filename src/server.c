@@ -8,6 +8,8 @@
 #include "server.h"
 #include "ifaddrs.h"
 
+// #define DEBUG
+
 int state;
 
 int argc_counter;
@@ -20,6 +22,36 @@ int attempts_counter = 0;
 HackerMessage msg_received;
 HackerMessage msg_to_send;
 
+static const char *getProtocolType(const char *protocol) {
+    if (strcmp(protocol, "v6") == 0) {
+        return "IPv6";
+    }
+
+    return "IPv4";
+}
+
+int isValidGuess(const int *guess) {
+    for (int i = 0; i < 5; i++) {
+        if (guess[i] < 0 || guess[i] > 9) {
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
+int setServerSocketForIPv4(int *server_socket, struct sockaddr_in *server_address) {
+    *server_socket = socket(AF_INET, SOCK_STREAM, 0);
+    server_address->sin_family = AF_INET;
+    return OK;
+}
+
+int setServerSocketForIPv6(int *server_socket, struct sockaddr_in *server_address) {
+    *server_socket = socket(AF_INET6, SOCK_STREAM, 0);
+    server_address->sin_family = AF_INET6;
+    return OK;
+}
+
 int setUpServer(char *ip, int port, int code) {
 
     // Validar as informações de configuração do servidor
@@ -27,11 +59,23 @@ int setUpServer(char *ip, int port, int code) {
         return ERROR;
     }
 
-    int server_socket = socket(AF_INET, SOCK_STREAM, 0);
+    int server_socket = 0;
     struct sockaddr_in server_address;
-    server_address.sin_family = AF_INET;
+    
+    //Set ipv4 or ipv6
+    if (strcmp(ip, "v4") == 0) {
+        setServerSocketForIPv4(&server_socket, &server_address);
+    }
+    else if (strcmp(ip, "v6") == 0) {
+        setServerSocketForIPv6(&server_socket, &server_address);
+    }
+    else{
+        return ERROR;
+    }
+
     server_address.sin_port = htons(port);
     server_address.sin_addr.s_addr = INADDR_ANY;
+
 
     int opt = 1;
     setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
@@ -76,23 +120,31 @@ int validateInfoToSetUpServer(char *ip, int port, int code) {
 
     // Verificar se o número de argumentos é correto
     if (argc_counter != 4) {
-        printf("Usage: ./server <ip> <port> <code>\n");
+#ifdef DEBUG
+        printf("Uso: ./server <protocolo> <porta> <senha>\n");
+#endif
         return ERROR;
     }
 
     if(strcmp(ip, "v4") != 0 && strcmp(ip, "v6") != 0) {
-        printf("Invalid IP version. Please provide a valid IP address.\n");
+#ifdef DEBUG
+        printf("Protocolo inválido. Use v4 ou v6.\n");
+#endif
         return ERROR;
     }
 
     // Verificar se porta e valida
     if (port <= 0 || port > 65535) {
-        printf("Invalid port number. Please provide a port number between 1 and 65535.\n");
+#ifdef DEBUG
+        printf("Porta inválida. Use um valor entre 1 e 65535.\n");
+#endif
         return ERROR;
     }
 
     if(code < 0 || code > 99999) {
-        printf("Invalid code. Please provide a code between 00000 and 99999.\n");
+#ifdef DEBUG
+        printf("Senha inválida. Use um valor entre 00000 e 99999.\n");
+#endif
         return ERROR;
     }
 
@@ -102,7 +154,6 @@ int validateInfoToSetUpServer(char *ip, int port, int code) {
 int waitForClientConnection(int server_socket) {
     int client_socket = accept(server_socket, NULL, NULL);
     if (client_socket < 0) {
-        printf("Error accepting client connection");
         return ERROR;
     }
     return client_socket;
@@ -134,8 +185,6 @@ int calculateFeedback(int *guess, int code, HackerMessage *msg) {
         code_digits[i] = code % 10;
         code /= 10;
     }
-
-    printf("Code digits: %d %d %d %d %d \n", code_digits[0], code_digits[1], code_digits[2], code_digits[3], code_digits[4]);
 
     for(int i = 0; i < 5; i++) {
         if (guess[i] == code_digits[i]) {
@@ -170,7 +219,6 @@ int fillFeedbackWithGuess(int *guess, HackerMessage *msg) {
 int main(int argc, char **argv) {
 
     state = START_SERVER_STATE;
-    printf("Starting server...\n");
 
     argc_counter = argc;
     code = atoi(argv[3]);
@@ -182,175 +230,142 @@ int main(int argc, char **argv) {
         switch (state)
         {
             case START_SERVER_STATE:
-                // printf("Starting server...\n");
                 state = SETTING_UP_SERVER_STATE;
-                printf("Setting up server...\n");
                 break;
             
             //Precisei colocar o case dentro de chaves para declarar variáveis locais
             case SETTING_UP_SERVER_STATE: {
-                // printf("Setting up server...\n");
-
                 char *ip_type = argv[1];
                 int port = atoi(argv[2]);
 
                 server_socket = setUpServer(ip_type, port, code);
 
                 if (server_socket < 0) {
-                    printf("Error setting up server");
                     return ERROR;
                 }
                 else{
-                    
-                    printf("Server set up successfully on %s:%d \n", getLocalIp(), port);
+                    printf("Servidor iniciado em modo %s na porta %d.\n", getProtocolType(ip_type), port);
                     state = WAIT_FOR_CONNECTION_STATE;
-                    printf("Waiting for client connection...\n");
                 }
 
                 break;
             }
 
             case WAIT_FOR_CONNECTION_STATE:
-                // printf("Waiting for client connection...\n");
-
                 client_socket = waitForClientConnection(server_socket);
                 
                 if (client_socket < 0) {
-                    printf("Error waiting for client connection");
                     return ERROR;
                 }
                 else{
-                    printf("Client connected successfully \n");
+                    printf("Cliente conectado\n");
                     state = WAIT_FOR_START_MESSAGE_STATE;
-                    printf("Waiting for start message from client...\n");
                 }
 
                 break;
 
             case WAIT_FOR_START_MESSAGE_STATE:
-                // printf("Waiting for start message from client...\n");
-                // state = RECEIVED_START_MESSAGE_STATE;
+                memset(&msg_received, 0, sizeof(msg_received));
 
-                readMessageFromClient(client_socket, &msg_received);
+                if (readMessageFromClient(client_socket, &msg_received) == ERROR) {
+                    return ERROR;
+                }
 
                 if(msg_received.type == MSG_START) {
-                    printf("Start message received from client...\n");
                     state = RECEIVED_START_MESSAGE_STATE;
                 }
                 else{
-                    printf("Invalid message type received from client. Expected MSG_START.\n");
                     return ERROR;
                 }
 
                 break;
 
             case RECEIVED_START_MESSAGE_STATE:
-                // printf("Start message received from client...\n");
                 state = WAITING_FOR_MESSAGE_STATE;
                 attempts_counter = 1;
 
                 memset(&msg_received, 0, sizeof(msg_received));
                 memset(&msg_to_send, 0, sizeof(msg_to_send));
 
-                printf("Waiting for guess message from client...\n");
-
                 break;    
 
             case WAITING_FOR_MESSAGE_STATE:
-                // printf("Waiting for guess message from client...\n");
-
+                memset(&msg_received, 0, sizeof(msg_received));
                 if (readMessageFromClient(client_socket, &msg_received) == ERROR) {
-                    printf("Error reading message from client");
                     return ERROR;
                 }
                 else if (msg_received.type == MSG_GUESS) {
                     state = RECEIVED_GUESS_MESSAGE_STATE;
-                    printf("Guess message received from client...\n");
                 }
                 else{
-                    printf("Invalid message type received from client. Expected MSG_GUESS.\n");
                     return ERROR;
                 }
 
                 break;
             
             case RECEIVED_GUESS_MESSAGE_STATE: {
-                // printf("Guess message received from client...\n");
-                printf("This was the guess received: %d %d %d %d %d \n", msg_received.guess[0], msg_received.guess[1], msg_received.guess[2], msg_received.guess[3], msg_received.guess[4]);
-
                 state = SEND_FEEDBACK_STATE;
-                printf("Sending feedback to client...\n");
 
                 break;
             }
 
             case SEND_FEEDBACK_STATE:
-                // printf("Sending feedback to client...\n");
-
                 memset(&msg_to_send, 0, sizeof(msg_to_send));
+                msg_to_send.type = MSG_FEEDBACK;
 
-                printf("Calculating feedback for guess...\n");
+                if (!isValidGuess(msg_received.guess)) {
+                    msg_to_send.win_status = ERROR;
+                    msg_to_send.attempts = attempts_counter;
+                    send(client_socket, &msg_to_send, sizeof(msg_to_send), 0);
+
+                    state = WAITING_FOR_MESSAGE_STATE;
+                    break;
+                }
 
                 fillFeedbackWithGuess(msg_received.guess, &msg_to_send);
 
-                // printf("Code to guess: %d \n", code);
-
                 calculateFeedback(msg_received.guess, code, &msg_to_send);
-
-                msg_to_send.type = MSG_FEEDBACK;
 
                 msg_to_send.attempts = attempts_counter++;
 
-                // write(client_socket, &msg_to_send, sizeof(msg_to_send));
                 send(client_socket, &msg_to_send, sizeof(msg_to_send), 0);
 
                 if(msg_to_send.win_status == IN_GAME) {
                     state = WAITING_FOR_MESSAGE_STATE;
-                    printf("Feedback sent to client. Waiting for next guess...\n");
                 }
                 else if (msg_to_send.win_status == WIN) {
                     state = WAIT_FOR_EXIT_MESSAGE_STATE;
-                    printf("Feedback sent to client. Waiting for exit message...\n");
                 }
                 else{
-                    printf("Invalid win status calculated. Expected IN_GAME or WIN.\n");
                     return ERROR;
                 }
 
                 break;
 
             case WAIT_FOR_EXIT_MESSAGE_STATE:
-                // printf("Waiting for exit message from client...\n");
-                // state = EXIT_STATE;
-
                 memset(&msg_received, 0, sizeof(msg_received));
                 if(readMessageFromClient(client_socket, &msg_received) == ERROR) {
-                    printf("Error reading message from client");
                     return ERROR;
                 }
 
                 if (msg_received.type == MSG_EXIT) {
                     state = EXIT_STATE;
-                    printf("Exit message received from client. Closing connection...\n");
-
+                    printf("Cliente desconectado\n");
                     close(client_socket);
                     close(server_socket);
 
                 }
                 else{
-                    printf("Invalid message type received from client. Expected MSG_EXIT.\n");
                     return ERROR;
                 }
 
                 break;
 
             case EXIT_STATE:
-                printf("Exiting server...\n");
                 exit(0);
                 break;
 
             default:
-                printf("INVALID SERVER STATE!!!\n");
                 break;
         }
     }
