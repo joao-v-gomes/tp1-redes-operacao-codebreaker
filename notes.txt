@@ -1,0 +1,14 @@
+Usar FSM. Um cliente e um servidor facilita pra FSM. Sequencia de execucao padrao
+
+Problema com o feedback, tava dando problema e eu nao sabia o que era, a logica tava certa
+mas dava erro. Percebi que tava preenchendo a msg errada, sem enviar o guess de volta pro cliente
+
+Verificar se o cliente vai pra Ipv4 ou Ipv6, meio gambs mas funciona. Isso seria resolvido
+se o ip do servidor fosse explicito, mas nao faz sentido..
+
+Funcao de validateGuess no cliente e no servidor. Duplicada mas e melhor garantir.
+
+Dupliquei tambem a funcao de leitura, caso houvesse algo diferente cliente->server, server->cliente
+
+Erro com o "Address already in use" durante os testes. O server nao dava unbind pq fechou com erro.
+Configurei para resolver.
