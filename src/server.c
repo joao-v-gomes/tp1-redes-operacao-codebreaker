@@ -46,9 +46,9 @@ int setServerSocketForIPv4(int *server_socket, struct sockaddr_in *server_addres
     return OK;
 }
 
-int setServerSocketForIPv6(int *server_socket, struct sockaddr_in *server_address) {
+int setServerSocketForIPv6(int *server_socket, struct sockaddr_in6 *server_address) {
     *server_socket = socket(AF_INET6, SOCK_STREAM, 0);
-    server_address->sin_family = AF_INET6;
+    server_address->sin6_family = AF_INET6;
     return OK;
 }
 
@@ -60,28 +60,49 @@ int setUpServer(char *ip, int port, int code) {
     }
 
     int server_socket = 0;
-    struct sockaddr_in server_address;
-    
-    //Set ipv4 or ipv6
+
+    // Set ipv4 or ipv6 and bind with the matching sockaddr type.
     if (strcmp(ip, "v4") == 0) {
-        setServerSocketForIPv4(&server_socket, &server_address);
+        struct sockaddr_in server_address4;
+        memset(&server_address4, 0, sizeof(server_address4));
+
+        setServerSocketForIPv4(&server_socket, &server_address4);
+        if (server_socket < 0) {
+            return ERROR;
+        }
+
+        server_address4.sin_port = htons(port);
+        server_address4.sin_addr.s_addr = INADDR_ANY;
+
+        int opt = 1;
+        setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
+        if (bind(server_socket, (struct sockaddr *)&server_address4, sizeof(server_address4)) < 0) {
+            perror("Error binding server socket");
+            return ERROR;
+        }
     }
     else if (strcmp(ip, "v6") == 0) {
-        setServerSocketForIPv6(&server_socket, &server_address);
+        struct sockaddr_in6 server_address6;
+        memset(&server_address6, 0, sizeof(server_address6));
+
+        setServerSocketForIPv6(&server_socket, &server_address6);
+        if (server_socket < 0) {
+            return ERROR;
+        }
+
+        server_address6.sin6_port = htons(port);
+        server_address6.sin6_addr = in6addr_any;
+
+        int opt = 1;
+        setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
+        if (bind(server_socket, (struct sockaddr *)&server_address6, sizeof(server_address6)) < 0) {
+            perror("Error binding server socket");
+            return ERROR;
+        }
     }
     else{
-        return ERROR;
-    }
-
-    server_address.sin_port = htons(port);
-    server_address.sin_addr.s_addr = INADDR_ANY;
-
-
-    int opt = 1;
-    setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-
-    if (bind(server_socket, (struct sockaddr *)&server_address, sizeof(server_address)) < 0) {
-        perror("Error binding server socket");
         return ERROR;
     }
 
