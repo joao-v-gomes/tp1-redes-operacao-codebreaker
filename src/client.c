@@ -10,16 +10,20 @@
 
 // #define DEBUG
 
-    
+// Conta os argumentos para validar a quantidade de argumentos passados na linha de comando
 int argc_counter;
 
+// Variáveis globais para o estado da FSM e o socket do cliente
 int state;
 int client_socket;
 
+// Estruturas para armazenar as mensagens enviadas e recebidas. Uma de cada vez...
 HackerMessage msg_sent;
 HackerMessage msg_received;
 
-static int isValidGuess(const char *guess_string) {
+// Valida a string do palpite.
+// O palpite deve conter exatamente 5 caracteres, todos numéricos (0-9).
+int isValidGuess(const char *guess_string) {
     size_t length = strcspn(guess_string, "\n");
 
     if (length != 5) {
@@ -35,8 +39,9 @@ static int isValidGuess(const char *guess_string) {
     return 1;
 }
 
+// Se conecta ao servidor usando o IP e a porta fornecidos. Retorna o socket do cliente ou ERROR em caso de falha.
+// Testa a conexao IpV4 primeiro, se falhar tenta o IPv6. Se ambos falharem, retorna ERROR.
 int connectToServer(char *server_ip, int server_port) {
-
     if(validateInfoToConnectToServer(server_ip, server_port) != 0) {
         return ERROR;
     }
@@ -84,6 +89,7 @@ int connectToServer(char *server_ip, int server_port) {
     return ERROR;
 }
 
+// Valida as informações de configuração do cliente. Retorna OK se as informações forem válidas ou ERROR caso contrário.
 int validateInfoToConnectToServer(char *server_ip, int server_port) {
 
     // Verificar se o número de argumentos é correto
@@ -116,6 +122,8 @@ int validateInfoToConnectToServer(char *server_ip, int server_port) {
     return OK;
 }
 
+
+// Lê uma mensagem do servidor. Retorna OK se a leitura for bem-sucedida ou ERROR em caso de falha.
 int readMessageFromServer(int client_socket, HackerMessage *msg) {
     int total = 0;
     while (total < sizeof(HackerMessage)) {
@@ -132,6 +140,11 @@ int readMessageFromServer(int client_socket, HackerMessage *msg) {
     return OK;
 }
 
+// Converte o feedback recebido do servidor em uma string legível para o usuário. 
+// O feedback é composto por 5 caracteres, onde cada caractere representa a avaliação de um dígito do palpite:
+// - Se o dígito está na posição correta, o caractere é o próprio dígito (0-9).
+// - Se o dígito está presente no código, mas na posição errada, o caractere é '*'
+// - Se o dígito não está presente no código, o caractere é '_'
 void convertFeedback(HackerMessage *msg_received, char *feedback) {
 
     // printf("Guess: %d %d %d %d %d \n", msg_received->guess[0], msg_received->guess[1], msg_received->guess[2], msg_received->guess[3], msg_received->guess[4]);
@@ -157,6 +170,7 @@ int main(int argc, char **argv) {
 
     argc_counter = argc;
 
+    // Inicializa o estado da FSM
     state = START_CLIENT_STATE;
 
     while(1)
@@ -182,6 +196,8 @@ int main(int argc, char **argv) {
             }
 
             case SEND_START_MESSAGE_STATE:
+
+                // Antes de enviar uma msg, limpa a estrutura para evitar enviar lixo de memória
                 memset(&msg_sent, 0, sizeof(msg_sent));
 
                 msg_sent.type = MSG_START;
@@ -194,14 +210,18 @@ int main(int argc, char **argv) {
             case SEND_GUESS_STATE:
                 printf("Insira seu palpite:\n");
 
-                char guess_string[16];
+                // 5 dígitos + '\n' + '\0' = 7 caracteres
+                char guess_string[7];
 
+                // Limpa a string do palpite para evitar lixo de memória
                 memset(guess_string, 0, sizeof(guess_string));
 
+                // Comecei usando scanf, mas o fgets foi melhor
                 if (fgets(guess_string, sizeof(guess_string), stdin) == NULL) {
                     return ERROR;
                 }
 
+                // Check na validade do palpite
                 if (!isValidGuess(guess_string)) {
                     printf("Insira uma sequência válida!\n");
                     state = SEND_GUESS_STATE;
@@ -210,23 +230,29 @@ int main(int argc, char **argv) {
 
                 memset(&msg_sent, 0, sizeof(msg_sent));
 
+                // Seta o tipo da msg
                 msg_sent.type = MSG_GUESS;
 
+                // Converte para um array de int
                 for(int i = 0; i < 5; i++) {
                     msg_sent.guess[i] = guess_string[i] - '0';
                 }
 
                 send(client_socket, &msg_sent, sizeof(msg_sent), 0);
-
+                
+                // Aguarda o feedback do servidor
                 state = WAIT_FOR_FEEDBACK_STATE;
 
                 break;
 
             case WAIT_FOR_FEEDBACK_STATE:
+
+                // le a msg recebida em msg_received
                 if(readMessageFromServer(client_socket, &msg_received) == ERROR) {
                     return ERROR;
                 }
 
+                // Classifica a msg de feedback
                 if(msg_received.type == MSG_FEEDBACK){
                     switch (msg_received.win_status)
                     {
@@ -255,11 +281,13 @@ int main(int argc, char **argv) {
             case RECEIVED_IN_GAME_FEEDBACK_STATE: {
                 char feedbackConverted[6];
 
+                // Verifica o feedback e converte para as dicas
                 convertFeedback(&msg_received, feedbackConverted);
 
                 printf("Dica: %s\n", feedbackConverted);
                 printf("Tentativas realizadas: %d\n", msg_received.attempts);
 
+                // Volta para o estado de enviar palpite
                 state = SEND_GUESS_STATE;
                 break;
             }
@@ -267,17 +295,22 @@ int main(int argc, char **argv) {
             case RECEIVED_WIN_FEEDBACK_STATE:
                 printf("Acesso concedido! Thaísa recuperou o sistema!\n");
 
+                // Envia a mensagem de saída para o servidor
                 memset(&msg_sent, 0, sizeof(msg_sent));
                 msg_sent.type = MSG_EXIT;
                 
                 send(client_socket, &msg_sent, sizeof(msg_sent), 0);
 
+                // Fecha o socket do cliente
                 close(client_socket);
 
                 state = WIN_STATE;
                 
                 break;
 
+            // Caso o palpite seja inválido, 
+            // o servidor retorna um feedback com win_status = ERROR.
+            //Nesse caso, o cliente deve informar o usuário e pedir um novo palpite.
             case RECEIVED_ERROR_FEEDBACK_STATE:
                 printf("Insira uma sequência válida!\n");
                 state = SEND_GUESS_STATE;

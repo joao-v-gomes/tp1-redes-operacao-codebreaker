@@ -9,11 +9,11 @@
 #define WIN 1
 #define IN_GAME 0
 
-
 // Defines para os returns das funcoes
 #define OK 0
 #define ERROR -1
 
+// Struct de MessageType
 typedef enum {
     MSG_START, // Servidor solicita a senha de acesso
     MSG_GUESS, // Cliente envia o palpite de 5 dígitos
@@ -23,6 +23,7 @@ typedef enum {
     MSG_EXIT // Encerramento da conexao
 } MessageType ;
 
+// Struct de HackerMessage
 typedef struct {
     int type ; // Tipo da mensagem ( MessageType )
     int guess [ 5 ] ; // Vetor com os 5 dígitos enviados pelo cliente
