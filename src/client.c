@@ -5,7 +5,7 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <ctype.h>
-#include "util.h"
+// #include "util.h"
 #include "client.h"
 
 // #define DEBUG
@@ -309,8 +309,7 @@ int main(int argc, char **argv) {
                 break;
 
             // Caso o palpite seja inválido, 
-            // o servidor retorna um feedback com win_status = ERROR.
-            //Nesse caso, o cliente deve informar o usuário e pedir um novo palpite.
+            // o servidor retorna um feedback com win_status = ERROR. Nesse caso, o cliente deve informar o usuário e pedir um novo palpite.
             case RECEIVED_ERROR_FEEDBACK_STATE:
                 printf("Insira uma sequência válida!\n");
                 state = SEND_GUESS_STATE;

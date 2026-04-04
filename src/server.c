@@ -4,12 +4,18 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
-#include "util.h"
+// #include "util.h"
 #include "server.h"
 #include "ifaddrs.h"
 
+// Usado para exibir as msgs de debug
 // #define DEBUG
 
+// Variáveis globais para o 
+// estado da FSM, 
+// os sockets do servidor e do cliente, 
+// o código a ser adivinhado
+// e o contador de tentativas
 int state;
 
 int argc_counter;
@@ -19,17 +25,20 @@ int client_socket = 0;
 int code;
 int attempts_counter = 0;
 
+// Estruturas para armazenar as mensagens enviadas e recebidas. Uma de cada vez...
 HackerMessage msg_received;
 HackerMessage msg_to_send;
 
-static const char *getProtocolType(const char *protocol) {
+// Retorna o tipo do protocolo: "IPv4" ou "IPv6"
+char *getProtocolType(const char *protocol) {
     if (strcmp(protocol, "v6") == 0) {
         return "IPv6";
     }
-
     return "IPv4";
 }
 
+// Verifica se o palpite é válido. 
+// O palpite deve conter exatamente 5 dígitos, cada um entre 0 e 9.
 int isValidGuess(const int *guess) {
     for (int i = 0; i < 5; i++) {
         if (guess[i] < 0 || guess[i] > 9) {
@@ -40,18 +49,24 @@ int isValidGuess(const int *guess) {
     return 1;
 }
 
+// Configura o server para Ipv4
 int setServerSocketForIPv4(int *server_socket, struct sockaddr_in *server_address) {
     *server_socket = socket(AF_INET, SOCK_STREAM, 0);
     server_address->sin_family = AF_INET;
     return OK;
 }
 
+// Configura o server para Ipv6
 int setServerSocketForIPv6(int *server_socket, struct sockaddr_in6 *server_address) {
     *server_socket = socket(AF_INET6, SOCK_STREAM, 0);
     server_address->sin6_family = AF_INET6;
     return OK;
 }
 
+// Configura o server
+// criando o socket, 
+// configurando o endereço e fazendo bind. 
+// Retorna o socket do servidor ou ERROR em caso de falha.
 int setUpServer(char *ip, int port, int code) {
 
     // Validar as informações de configuração do servidor
@@ -72,8 +87,13 @@ int setUpServer(char *ip, int port, int code) {
         }
 
         server_address4.sin_port = htons(port);
+
+        // Seta o endereço para INADDR_ANY, 
+        // que permite que o servidor aceite conexões
+        // em qualquer interface de rede disponível.
         server_address4.sin_addr.s_addr = INADDR_ANY;
 
+        // Fix o erro de "Address already in use" ao reiniciar o servidor rapidamente
         int opt = 1;
         setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
@@ -114,29 +134,8 @@ int setUpServer(char *ip, int port, int code) {
     return server_socket;
 }
 
-char* getLocalIp() {
-    struct ifaddrs *ifaddr, *ifa;
-    static char localIp[INET_ADDRSTRLEN] = "0.0.0.0";
-
-    if (getifaddrs(&ifaddr) == -1) {
-        return localIp;
-    }
-
-    for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
-        if (!ifa->ifa_addr) continue;
-
-        if (ifa->ifa_addr->sa_family == AF_INET) {
-            struct sockaddr_in *sa = (struct sockaddr_in *)ifa->ifa_addr;
-
-            inet_ntop(AF_INET, &sa->sin_addr, localIp, sizeof(localIp));
-
-        }
-    }
-    freeifaddrs(ifaddr);
-
-    return localIp;
-}
-
+// Valida as informações de configuração do servidor. 
+// Retorna OK se as informações forem válidas ou ERROR caso contrário.
 int validateInfoToSetUpServer(char *ip, int port, int code) {
 
     // Verificar se o número de argumentos é correto
@@ -172,6 +171,7 @@ int validateInfoToSetUpServer(char *ip, int port, int code) {
     return OK;
 }
 
+// Espera pela conexao do cliente. Retorna o socket do cliente ou ERROR em caso de falha.
 int waitForClientConnection(int server_socket) {
     int client_socket = accept(server_socket, NULL, NULL);
     if (client_socket < 0) {
@@ -180,6 +180,7 @@ int waitForClientConnection(int server_socket) {
     return client_socket;
 }
 
+// Le uma mensagem do cliente. Retorna OK se a leitura for bem-sucedida ou ERROR em caso de falha.
 int readMessageFromClient(int client_socket, HackerMessage *msg) {
     int total = 0;
     while (total < sizeof(HackerMessage)) {
@@ -196,6 +197,8 @@ int readMessageFromClient(int client_socket, HackerMessage *msg) {
     return OK;
 }
 
+// Verifica o palpite do cliente e 
+// preenche a mensagem de feedback com os numeros que representam o feedback.
 int calculateFeedback(int *guess, int code, HackerMessage *msg) {
     int code_digits[5];
     int counter_right_position = 0;
@@ -230,6 +233,7 @@ int calculateFeedback(int *guess, int code, HackerMessage *msg) {
     return OK;
 }
 
+// Preenche a msg de feedback com o palpite.
 int fillFeedbackWithGuess(int *guess, HackerMessage *msg) {
     for(int i = 0; i < 5; i++) {
         msg->guess[i] = guess[i];
@@ -239,6 +243,7 @@ int fillFeedbackWithGuess(int *guess, HackerMessage *msg) {
 
 int main(int argc, char **argv) {
 
+    // Inicializa o estado da FSM
     state = START_SERVER_STATE;
 
     argc_counter = argc;
@@ -305,13 +310,18 @@ int main(int argc, char **argv) {
                 state = WAITING_FOR_MESSAGE_STATE;
                 attempts_counter = 1;
 
+                // Ao receber a msg de START, limpa as msg para uiniciar do zero.
+                // Seta o attempts_counter para 1.
                 memset(&msg_received, 0, sizeof(msg_received));
                 memset(&msg_to_send, 0, sizeof(msg_to_send));
 
                 break;    
 
             case WAITING_FOR_MESSAGE_STATE:
+
+                // Aguarda o palpite do cliente.
                 memset(&msg_received, 0, sizeof(msg_received));
+
                 if (readMessageFromClient(client_socket, &msg_received) == ERROR) {
                     return ERROR;
                 }
@@ -347,10 +357,14 @@ int main(int argc, char **argv) {
 
                 calculateFeedback(msg_received.guess, code, &msg_to_send);
 
+                // Incrementa as tentativas se elas forem validas
                 msg_to_send.attempts = attempts_counter++;
 
                 send(client_socket, &msg_to_send, sizeof(msg_to_send), 0);
 
+                // Verifica o feedback para decidir o próximo estado. 
+                // Se o cliente ganhou, espera a mensagem de exit. 
+                //Caso contrário, espera um novo palpite.
                 if(msg_to_send.win_status == IN_GAME) {
                     state = WAITING_FOR_MESSAGE_STATE;
                 }
@@ -372,6 +386,8 @@ int main(int argc, char **argv) {
                 if (msg_received.type == MSG_EXIT) {
                     state = EXIT_STATE;
                     printf("Cliente desconectado\n");
+
+                    // Fecha os sockets do cliente e do servidor antes de sair.
                     close(client_socket);
                     close(server_socket);
 
@@ -390,52 +406,5 @@ int main(int argc, char **argv) {
                 break;
         }
     }
-    // int port = atoi(argv[2]);
-    // char *code = argv[3];
-
-    // printf("Server is running on %s:%d and the code is %s \n", ip, port, code);
-
-    // //create a socket and bind it to the port
-    // int server_socket = socket(AF_INET, SOCK_STREAM, 0);
-    // struct sockaddr_in server_address;
-    // server_address.sin_family = AF_INET;
-    // server_address.sin_port = htons(port);
-    // inet_pton(AF_INET, ip, &server_address.sin_addr);
-
-    // bind(server_socket, (struct sockaddr *)&server_address, sizeof(server_address));
-
-    // //listen for incoming connections
-    // listen(server_socket, 1);
-
-    // // char buffer[1024];
-
-    // int client_socket = accept(server_socket, NULL, NULL);
-
-    // HackerMessage msg;
-    // int total = 0;
-    // while (1)
-    // {
-    //     total = 0;
-    //     while (total < sizeof(msg)) {
-    //         int n = read(client_socket, ((char*)&msg) + total, sizeof(msg) - total);
-    //         if (n <= 0){
-    //             break;
-    //         }
-    //         total += n;
-    //     }
-
-    //     printf("Received message from client: %s \n", msg.type == MSG_START ? "MSG_START" : msg.type == MSG_GUESS ? "MSG_GUESS" : msg.type == MSG_FEEDBACK ? "MSG_FEEDBACK" : msg.type == MSG_WIN ? "MSG_WIN" : msg.type == MSG_ERROR ? "MSG_ERROR" : "MSG_EXIT");
-        
-    //     printf("Guess: %d %d %d %d %d \n", msg.guess[0], msg.guess[1], msg.guess[2], msg.guess[3], msg.guess[4]);
-    //     // printf("Attempts: %d \n", msg.attempts);
-    //     printf("Win status: %d \n", msg.win_status);
-
-
-
-    //     //clear the struct
-    //     memset(&msg, 0, sizeof(msg));
-
-    // } 
-
     return 0;
 }
