@@ -14,7 +14,11 @@
 
 
 // Protótipos das funções do servidor
-
+int isValidGuess(const int *guess);
+char *getProtocolType(const char *protocol);
+void messageHostToNetwork(HackerMessage *msg);
+void messageNetworkToHost(HackerMessage *msg);
+int fillFeedbackWithGuess(int *guess, HackerMessage *msg);
 int setUpServer(char *ip, int port, int code);
 int validateInfoToSetUpServer(char *ip, int port, int code);
 int waitForClientConnection(int server_socket);

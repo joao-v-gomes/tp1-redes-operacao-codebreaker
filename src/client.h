@@ -14,6 +14,9 @@
 
 
 // Protótipos das funções do cliente
+int validateInfoToConnectToServer(char *server_ip, int server_port);
+void messageHostToNetwork(HackerMessage *msg);
+void messageNetworkToHost(HackerMessage *msg);
 int isValidGuess(const char *guess_string);
 void convertFeedback(HackerMessage *msg_received, char *feedback);
 int readMessageFromServer(int client_socket, HackerMessage *msg_received);

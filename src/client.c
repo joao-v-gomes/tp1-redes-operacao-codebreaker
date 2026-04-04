@@ -21,6 +21,29 @@ int client_socket;
 HackerMessage msg_sent;
 HackerMessage msg_received;
 
+// Trata o problema da endianess do Host/Rede,
+// convertendo os campos da mensagem de host para network byte order antes de enviar,
+// e de network para host byte order após receber.
+void messageHostToNetwork(HackerMessage *msg) {
+    msg->type = htonl(msg->type);
+    for (int i = 0; i < 5; i++) {
+        msg->guess[i] = htonl(msg->guess[i]);
+        msg->feedback[i] = htonl(msg->feedback[i]);
+    }
+    msg->attempts = htonl(msg->attempts);
+    msg->win_status = htonl(msg->win_status);
+}
+
+void messageNetworkToHost(HackerMessage *msg) {
+    msg->type = ntohl(msg->type);
+    for (int i = 0; i < 5; i++) {
+        msg->guess[i] = ntohl(msg->guess[i]);
+        msg->feedback[i] = ntohl(msg->feedback[i]);
+    }
+    msg->attempts = ntohl(msg->attempts);
+    msg->win_status = ntohl(msg->win_status);
+}
+
 // Valida a string do palpite.
 // O palpite deve conter exatamente 5 caracteres, todos numéricos (0-9).
 int isValidGuess(const char *guess_string) {
@@ -126,8 +149,9 @@ int validateInfoToConnectToServer(char *server_ip, int server_port) {
 // Lê uma mensagem do servidor. Retorna OK se a leitura for bem-sucedida ou ERROR em caso de falha.
 int readMessageFromServer(int client_socket, HackerMessage *msg) {
     int total = 0;
+    memset(msg, 0, sizeof(HackerMessage));
+
     while (total < sizeof(HackerMessage)) {
-        // int n = read(client_socket, ((char*)msg) + total, sizeof(HackerMessage) - total);
         int n = recv(client_socket, ((char*)msg) + total, sizeof(HackerMessage) - total, 0);
 
         // printf("Read %d bytes from server socket\n", n);
@@ -137,6 +161,9 @@ int readMessageFromServer(int client_socket, HackerMessage *msg) {
         }
         total += n;
     }
+
+    messageNetworkToHost(msg);
+
     return OK;
 }
 
@@ -195,19 +222,24 @@ int main(int argc, char **argv) {
                 break;
             }
 
-            case SEND_START_MESSAGE_STATE:
+            case SEND_START_MESSAGE_STATE: {
 
                 // Antes de enviar uma msg, limpa a estrutura para evitar enviar lixo de memória
                 memset(&msg_sent, 0, sizeof(msg_sent));
 
                 msg_sent.type = MSG_START;
 
+                messageHostToNetwork(&msg_sent);
+
                 send(client_socket, &msg_sent, sizeof(msg_sent), 0);
+
+                messageNetworkToHost(&msg_sent);
 
                 state = SEND_GUESS_STATE;
                 break;
+            }
 
-            case SEND_GUESS_STATE:
+            case SEND_GUESS_STATE: {
                 printf("Insira seu palpite:\n");
 
                 // 5 dígitos + '\n' + '\0' = 7 caracteres
@@ -238,12 +270,17 @@ int main(int argc, char **argv) {
                     msg_sent.guess[i] = guess_string[i] - '0';
                 }
 
+                messageHostToNetwork(&msg_sent);
+
                 send(client_socket, &msg_sent, sizeof(msg_sent), 0);
+
+                messageNetworkToHost(&msg_sent);
                 
                 // Aguarda o feedback do servidor
                 state = WAIT_FOR_FEEDBACK_STATE;
 
                 break;
+            }
 
             case WAIT_FOR_FEEDBACK_STATE:
 
@@ -292,14 +329,18 @@ int main(int argc, char **argv) {
                 break;
             }
 
-            case RECEIVED_WIN_FEEDBACK_STATE:
+            case RECEIVED_WIN_FEEDBACK_STATE: {
                 printf("Acesso concedido! Thaísa recuperou o sistema!\n");
 
                 // Envia a mensagem de saída para o servidor
                 memset(&msg_sent, 0, sizeof(msg_sent));
                 msg_sent.type = MSG_EXIT;
+
+                messageHostToNetwork(&msg_sent);
                 
                 send(client_socket, &msg_sent, sizeof(msg_sent), 0);
+
+                messageNetworkToHost(&msg_sent);
 
                 // Fecha o socket do cliente
                 close(client_socket);
@@ -307,6 +348,7 @@ int main(int argc, char **argv) {
                 state = WIN_STATE;
                 
                 break;
+            }
 
             // Caso o palpite seja inválido, 
             // o servidor retorna um feedback com win_status = ERROR. Nesse caso, o cliente deve informar o usuário e pedir um novo palpite.

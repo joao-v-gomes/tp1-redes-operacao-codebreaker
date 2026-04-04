@@ -29,6 +29,29 @@ int attempts_counter = 0;
 HackerMessage msg_received;
 HackerMessage msg_to_send;
 
+// Trata o problema da endianess do Host/Rede,
+// convertendo os campos da mensagem de host para network byte order antes de enviar,
+// e de network para host byte order após receber.
+void messageHostToNetwork(HackerMessage *msg) {
+    msg->type = htonl(msg->type);
+    for (int i = 0; i < 5; i++) {
+        msg->guess[i] = htonl(msg->guess[i]);
+        msg->feedback[i] = htonl(msg->feedback[i]);
+    }
+    msg->attempts = htonl(msg->attempts);
+    msg->win_status = htonl(msg->win_status);
+}
+
+void messageNetworkToHost(HackerMessage *msg) {
+    msg->type = ntohl(msg->type);
+    for (int i = 0; i < 5; i++) {
+        msg->guess[i] = ntohl(msg->guess[i]);
+        msg->feedback[i] = ntohl(msg->feedback[i]);
+    }
+    msg->attempts = ntohl(msg->attempts);
+    msg->win_status = ntohl(msg->win_status);
+}
+
 // Retorna o tipo do protocolo: "IPv4" ou "IPv6"
 char *getProtocolType(const char *protocol) {
     if (strcmp(protocol, "v6") == 0) {
@@ -183,8 +206,9 @@ int waitForClientConnection(int server_socket) {
 // Le uma mensagem do cliente. Retorna OK se a leitura for bem-sucedida ou ERROR em caso de falha.
 int readMessageFromClient(int client_socket, HackerMessage *msg) {
     int total = 0;
+    memset(msg, 0, sizeof(HackerMessage));
+
     while (total < sizeof(HackerMessage)) {
-        // int n = read(client_socket, ((char*)msg) + total, sizeof(HackerMessage) - total);
         int n = recv(client_socket, ((char*)msg) + total, sizeof(HackerMessage) - total, 0);
 
         // printf("Read %d bytes from client socket\n", n);
@@ -194,6 +218,9 @@ int readMessageFromClient(int client_socket, HackerMessage *msg) {
         }
         total += n;
     }
+
+    messageNetworkToHost(msg);
+
     return OK;
 }
 
@@ -347,7 +374,12 @@ int main(int argc, char **argv) {
                 if (!isValidGuess(msg_received.guess)) {
                     msg_to_send.win_status = ERROR;
                     msg_to_send.attempts = attempts_counter;
+
+                    messageHostToNetwork(&msg_to_send);
+
                     send(client_socket, &msg_to_send, sizeof(msg_to_send), 0);
+
+                    messageNetworkToHost(&msg_to_send);
 
                     state = WAITING_FOR_MESSAGE_STATE;
                     break;
@@ -360,7 +392,11 @@ int main(int argc, char **argv) {
                 // Incrementa as tentativas se elas forem validas
                 msg_to_send.attempts = attempts_counter++;
 
+                messageHostToNetwork(&msg_to_send);
+
                 send(client_socket, &msg_to_send, sizeof(msg_to_send), 0);
+
+                messageNetworkToHost(&msg_to_send);
 
                 // Verifica o feedback para decidir o próximo estado. 
                 // Se o cliente ganhou, espera a mensagem de exit. 
