@@ -145,7 +145,6 @@ int validateInfoToConnectToServer(char *server_ip, int server_port) {
     return OK;
 }
 
-
 // Lê uma mensagem do servidor. Retorna OK se a leitura for bem-sucedida ou ERROR em caso de falha.
 int readMessageFromServer(int client_socket, HackerMessage *msg) {
     int total = 0;
