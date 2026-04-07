@@ -274,6 +274,12 @@ int main(int argc, char **argv) {
     state = START_SERVER_STATE;
 
     argc_counter = argc;
+
+    if (argc_counter != 4) {
+        fprintf(stderr, "Uso: ./server <protocolo> <porta> <senha>\n");
+        return ERROR;
+    }
+
     code = atoi(argv[3]);
 
     // printf("Code to guess: %d \n", code);
