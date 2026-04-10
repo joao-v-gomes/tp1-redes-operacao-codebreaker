@@ -232,9 +232,10 @@ int calculateFeedback(int *guess, int code, HackerMessage *msg) {
 
     // printf("Code to guess: %d \n", code);
     
+    // Separa o int digito a digito
     for(int i = 4; i >= 0; i--) {
         code_digits[i] = code % 10;
-        code /= 10;
+        code = code / 10;
     }
 
     for(int i = 0; i < 5; i++) {
