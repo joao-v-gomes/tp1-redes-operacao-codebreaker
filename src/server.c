@@ -228,7 +228,8 @@ int readMessageFromClient(int client_socket, HackerMessage *msg) {
 // preenche a mensagem de feedback com os numeros que representam o feedback.
 int calculateFeedback(int *guess, int code, HackerMessage *msg) {
     int code_digits[5];
-    int counter_right_position = 0;
+    int counter = 0;
+    int remaining_digits[10] = {0};
 
     // printf("Code to guess: %d \n", code);
     
@@ -238,20 +239,33 @@ int calculateFeedback(int *guess, int code, HackerMessage *msg) {
         code = code / 10;
     }
 
+    // Marca acertos e ve quais digitos sobraram
     for(int i = 0; i < 5; i++) {
         if (guess[i] == code_digits[i]) {
             msg->feedback[i] = RIGHT_POSITION;
-            counter_right_position++;
+            counter++;
         }
-        else if (guess[i] == code_digits[(i + 1) % 5] || guess[i] == code_digits[(i + 2) % 5] || guess[i] == code_digits[(i + 3) % 5] || guess[i] == code_digits[(i + 4) % 5]) {
-            msg->feedback[i] = WRONG_POSITION;
-        }
-        else{
+        else {
             msg->feedback[i] = NOT_IN_CODE;
+            remaining_digits[code_digits[i]]++;
+        }
+    }
+
+    // printf("Digitos restantes para verificar: ");
+    // for (int i = 0; i < 10; i++) {
+    //     if (remaining_digits[i] > 0) {
+    //         printf("%d ", i);
+    //     }
+    // }
+    // printf("\n");
+
+    // Verificar se os digitos restantes estão no código e
+    // nao estão na posição correta
         }
     }
 
     if(counter_right_position == 5) {
+    if(counter == 5) {
         msg->win_status = WIN;
     }
     else{
