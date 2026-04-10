@@ -121,7 +121,7 @@ int setUpServer(char *ip, int port, int code) {
         setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
         if (bind(server_socket, (struct sockaddr *)&server_address4, sizeof(server_address4)) < 0) {
-            perror("Error binding server socket");
+            printf("Error binding server socket");
             return ERROR;
         }
     }
@@ -141,7 +141,7 @@ int setUpServer(char *ip, int port, int code) {
         setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
         if (bind(server_socket, (struct sockaddr *)&server_address6, sizeof(server_address6)) < 0) {
-            perror("Error binding server socket");
+            printf("Error binding server socket");
             return ERROR;
         }
     }
@@ -150,7 +150,7 @@ int setUpServer(char *ip, int port, int code) {
     }
 
     if (listen(server_socket, 1) < 0) {
-        perror("Error listening for connections");
+        printf("Error listening for connections");
         return ERROR;
     }
 
@@ -274,12 +274,6 @@ int main(int argc, char **argv) {
     state = START_SERVER_STATE;
 
     argc_counter = argc;
-
-    if (argc_counter != 4) {
-        fprintf(stderr, "Uso: ./server <protocolo> <porta> <senha>\n");
-        return ERROR;
-    }
-
     code = atoi(argv[3]);
 
     // printf("Code to guess: %d \n", code);
