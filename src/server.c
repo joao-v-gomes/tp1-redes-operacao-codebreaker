@@ -261,10 +261,26 @@ int calculateFeedback(int *guess, int code, HackerMessage *msg) {
 
     // Verificar se os digitos restantes estão no código e
     // nao estão na posição correta
+    
+    for (int i = 0; i < 5; i++) {
+        if (msg->feedback[i] == RIGHT_POSITION) {
+            continue;
+        }
+
+        if (remaining_digits[guess[i]] > 0) {
+            msg->feedback[i] = WRONG_POSITION;
+            remaining_digits[guess[i]]--;
         }
     }
 
-    if(counter_right_position == 5) {
+       // printf("Digitos restantes para verificar: ");
+    // for (int i = 0; i < 10; i++) {
+    //     if (remaining_digits[i] > 0) {
+    //         printf("%d ", i);
+    //     }
+    // }
+    // printf("\n");
+
     if(counter == 5) {
         msg->win_status = WIN;
     }
