@@ -69,6 +69,7 @@ A função `isValidGuess` existe em duas versões com assinaturas diferentes, e 
 Cada uma vive numa fronteira diferente do sistema. O cliente valida antes de converter e enviar, ele é a proteção contra entrada ruim do usuário. O servidor valida depois de receber, protege contra mensagens ruins.
 
 Ter só uma não faria sentido porque operam em tipos diferentes e com objetivos diferentes.
+
 ---
 
 ## 5. "Address already in use" e SO_REUSEADDR
