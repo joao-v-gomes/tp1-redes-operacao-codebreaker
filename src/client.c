@@ -315,13 +315,11 @@ int main(int argc, char **argv) {
                 break;
 
             case RECEIVED_IN_GAME_FEEDBACK_STATE: {
-                char feedbackConverted[6];
+                if (strlen(msg_received.message) == 0) {
+                    return ERROR;
+                }
 
-                // Verifica o feedback e converte para as dicas
-                convertFeedback(&msg_received, feedbackConverted);
-
-                printf("Dica: %s\n", feedbackConverted);
-                printf("Tentativas realizadas: %d\n", msg_received.attempts);
+                printf("%s\n", msg_received.message);
 
                 // Volta para o estado de enviar palpite
                 state = SEND_GUESS_STATE;
@@ -329,7 +327,11 @@ int main(int argc, char **argv) {
             }
 
             case RECEIVED_WIN_FEEDBACK_STATE: {
-                printf("Acesso concedido! Thaísa recuperou o sistema!\n");
+                if (strlen(msg_received.message) == 0) {
+                    return ERROR;
+                }
+
+                printf("%s\n", msg_received.message);
 
                 // Envia a mensagem de saída para o servidor
                 memset(&msg_sent, 0, sizeof(msg_sent));
@@ -352,7 +354,11 @@ int main(int argc, char **argv) {
             // Caso o palpite seja inválido, 
             // o servidor retorna um feedback com win_status = ERROR. Nesse caso, o cliente deve informar o usuário e pedir um novo palpite.
             case RECEIVED_ERROR_FEEDBACK_STATE:
-                printf("Insira uma sequência válida!\n");
+                if (strlen(msg_received.message) == 0) {
+                    return ERROR;
+                }
+
+                printf("%s\n", msg_received.message);
                 state = SEND_GUESS_STATE;
                 break;
             
