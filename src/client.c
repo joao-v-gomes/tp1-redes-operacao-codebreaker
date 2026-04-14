@@ -252,6 +252,14 @@ int main(int argc, char **argv) {
                     return ERROR;
                 }
 
+                // Se nao houver '\n', a entrada ultrapassou o buffer.
+                // Descarta o restante para nao poluir a proxima leitura.
+                if (strchr(guess_string, '\n') == NULL) {
+                    int ch;
+                    while ((ch = getchar()) != '\n' && ch != EOF) {
+                    }
+                }
+
                 // Check na validade do palpite
                 if (!isValidGuess(guess_string)) {
                     printf("Insira uma sequência válida!\n");
