@@ -60,6 +60,26 @@ char *getProtocolType(const char *protocol) {
     return "IPv4";
 }
 
+void setMessage(HackerMessage *msg, const char *text) {
+    snprintf(msg->message, MSG_SIZE, "%s", text);
+}
+
+void buildFeedbackString(const HackerMessage *msg, char *feedback) {
+    for (int i = 0; i < 5; i++) {
+        if (msg->feedback[i] == RIGHT_POSITION) {
+            feedback[i] = msg->guess[i] + '0';
+        }
+        else if (msg->feedback[i] == WRONG_POSITION) {
+            feedback[i] = '*';
+        }
+        else {
+            feedback[i] = '_';
+        }
+    }
+
+    feedback[5] = '\0';
+}
+
 // Verifica se o palpite é válido. 
 // O palpite deve conter exatamente 5 dígitos, cada um entre 0 e 9.
 int isValidGuess(const int *guess) {
@@ -328,7 +348,12 @@ int main(int argc, char **argv) {
                     return ERROR;
                 }
                 else{
-                    printf("Servidor iniciado em modo %s na porta %d.\n", getProtocolType(ip_type), port);
+                    memset(&msg_to_send, 0, sizeof(msg_to_send));
+                    snprintf(msg_to_send.message, MSG_SIZE,
+                             "Servidor iniciado em modo %s na porta %d.",
+                             getProtocolType(ip_type),
+                             port);
+                    printf("%s\n", msg_to_send.message);
                     state = WAIT_FOR_CONNECTION_STATE;
                 }
 
@@ -342,7 +367,9 @@ int main(int argc, char **argv) {
                     return ERROR;
                 }
                 else{
-                    printf("Cliente conectado\n");
+                    memset(&msg_to_send, 0, sizeof(msg_to_send));
+                    setMessage(&msg_to_send, "Cliente conectado");
+                    printf("%s\n", msg_to_send.message);
                     state = WAIT_FOR_START_MESSAGE_STATE;
                 }
 
@@ -400,11 +427,12 @@ int main(int argc, char **argv) {
 
             case SEND_FEEDBACK_STATE:
                 memset(&msg_to_send, 0, sizeof(msg_to_send));
-                msg_to_send.type = MSG_FEEDBACK;
 
                 if (!isValidGuess(msg_received.guess)) {
+                    msg_to_send.type = MSG_ERROR;
                     msg_to_send.win_status = ERROR;
                     msg_to_send.attempts = attempts_counter;
+                    setMessage(&msg_to_send, "Insira uma sequência válida!");
 
                     messageHostToNetwork(&msg_to_send);
 
@@ -422,6 +450,23 @@ int main(int argc, char **argv) {
 
                 // Incrementa as tentativas se elas forem validas
                 msg_to_send.attempts = attempts_counter++;
+
+                if (msg_to_send.win_status == IN_GAME) {
+                    msg_to_send.type = MSG_FEEDBACK;
+                    char feedback[6];
+                    buildFeedbackString(&msg_to_send, feedback);
+                    snprintf(msg_to_send.message, MSG_SIZE,
+                             "Dica: %s\nTentativas realizadas: %d",
+                             feedback,
+                             msg_to_send.attempts);
+                }
+                else if (msg_to_send.win_status == WIN) {
+                    msg_to_send.type = MSG_WIN;
+                    setMessage(&msg_to_send, "Acesso concedido! Thaísa recuperou o sistema!");
+                }
+                else {
+                    return ERROR;
+                }
 
                 messageHostToNetwork(&msg_to_send);
 
@@ -452,7 +497,9 @@ int main(int argc, char **argv) {
 
                 if (msg_received.type == MSG_EXIT) {
                     state = EXIT_STATE;
-                    printf("Cliente desconectado\n");
+                    memset(&msg_to_send, 0, sizeof(msg_to_send));
+                    setMessage(&msg_to_send, "Cliente desconectado");
+                    printf("%s\n", msg_to_send.message);
 
                     // Fecha os sockets do cliente e do servidor antes de sair.
                     close(client_socket);
