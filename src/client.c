@@ -288,29 +288,29 @@ int main(int argc, char **argv) {
                     return ERROR;
                 }
 
-                // Classifica a msg de feedback
-                if(msg_received.type == MSG_FEEDBACK){
-                    switch (msg_received.win_status)
-                    {
-                        case IN_GAME:
+                // Classifica a msg recebida de acordo com o tipo do protocolo.
+                switch (msg_received.type)
+                {
+                    case MSG_FEEDBACK:
+                        if (msg_received.win_status == IN_GAME) {
                             state = RECEIVED_IN_GAME_FEEDBACK_STATE;
-                            break;
-                        
-                        case WIN:
-                            state = RECEIVED_WIN_FEEDBACK_STATE;
-                            break;
-                        
-                        case ERROR:
-                            state = RECEIVED_ERROR_FEEDBACK_STATE;
-                            break;
-
-                        default:
+                        }
+                        else {
                             return ERROR;
-                            break;
-                    }
-                }
-                else{
-                    return ERROR;
+                        }
+                        break;
+
+                    case MSG_WIN:
+                        state = RECEIVED_WIN_FEEDBACK_STATE;
+                        break;
+
+                    case MSG_ERROR:
+                        state = RECEIVED_ERROR_FEEDBACK_STATE;
+                        break;
+
+                    default:
+                        return ERROR;
+                        break;
                 }
                 break;
 
