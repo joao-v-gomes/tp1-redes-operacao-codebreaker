@@ -1,4 +1,5 @@
 #include "util.h"
+#include <netinet/in.h>
 
 // Defines para a FSM do servidor
 #define START_SERVER_STATE 0
@@ -22,3 +23,9 @@ int fillFeedbackWithGuess(int *guess, HackerMessage *msg);
 int setUpServer(char *ip, int port, int code);
 int validateInfoToSetUpServer(char *ip, int port, int code);
 int waitForClientConnection(int server_socket);
+int setServerSocketForIPv4(int *server_socket, struct sockaddr_in *server_address);
+int setServerSocketForIPv6(int *server_socket, struct sockaddr_in6 *server_address);
+int readMessageFromClient(int client_socket, HackerMessage *msg);
+int calculateFeedback(int *guess, int code, HackerMessage *msg);
+void setMessage(HackerMessage *msg, const char *text);
+void buildFeedbackString(const HackerMessage *msg, char *feedback);

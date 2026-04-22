@@ -60,10 +60,14 @@ char *getProtocolType(const char *protocol) {
     return "IPv4";
 }
 
+// Configura a mensagem de resposta do servidor com o texto fornecido.
 void setMessage(HackerMessage *msg, const char *text) {
     snprintf(msg->message, MSG_SIZE, "%s", text);
 }
 
+// Constrói a string de feedback para o cliente com base na mensagem recebida do cliente.
+// Usa os caracteres '_' para indicar dígitos que não estão no código,
+// '*' para dígitos que estão no código mas na posição errada, e os próprios dígitos para os acertos.
 void buildFeedbackString(const HackerMessage *msg, char *feedback) {
     for (int i = 0; i < 5; i++) {
         if (msg->feedback[i] == RIGHT_POSITION) {
